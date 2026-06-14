@@ -1,0 +1,395 @@
+project:
+  name: lwolftown
+  description: >
+    A real-life social deduction companion app inspired by Les Loups-Garous de Thiercelieux.
+    Players are physically together in the same room. The app manages hidden information,
+    roles, narration, game state, voting, night actions, and defense windows while keeping
+    human conversation at the center. This is NOT an online multiplayer game.
+  language: php
+  framework: laravel
+  version: "13.7"
+  spec_file: scratch.md
+
+stack:
+  backend: laravel^13.7
+  php: "^8.3"
+  templating: blade
+  reactive_ui: livewire^4.1
+  css: tailwindcss^4.0.7
+  css_note: CSS-first config only. NO tailwind.config.js ever.
+  realtime: laravel-reverb^1.10
+  build_tool: vite^8.0.0
+  build_plugin: "@tailwindcss/vite"
+  hosting: railway
+  database_production: postgresql
+  database_local: sqlite
+  js_ws_client: laravel-echo^2.3.4 + pusher-js^8.5.0
+  qr_code: chillerlan/php-qrcode^6.0
+  frontend_js: alpinejs (bundled with livewire)
+  module_type: esm
+
+do_not_introduce:
+  - redis
+  - vue
+  - react
+  - pusher_service
+  - third_party_auth
+  - flux_ui_components
+  - ngrok
+  - any_tunnel_service
+  - serverless_functions
+  - sqlite_in_production
+  - tailwind_config_js
+
+railway:
+  services:
+    - name: app
+      start_command: "php artisan migrate --force && php artisan optimize && frankenphp run --config /etc/caddy/Caddyfile"
+      config_file: railway.app.json
+      public: true
+    - name: reverb
+      start_command: "php artisan reverb:start --host=0.0.0.0 --port=8080"
+      config_file: railway.reverb.json
+      public: true
+      port: 8080
+    - name: queue
+      start_command: "php artisan queue:work --tries=3 --timeout=60"
+      config_file: railway.queue.json
+      public: false
+  database: postgresql_managed
+  critical_rules:
+    - ALL connections must use HTTPS/WSS in production — no exceptions
+    - APP_URL must always be https:// in production
+    - REVERB_SCHEME must always be https in production
+    - VITE_REVERB_SCHEME must always be https in production
+    - forceTLS must be true in bootstrap.js when scheme is https
+    - Railway handles TLS termination externally — Reverb runs plain WS on port 8080 internally
+    - NEVER mix HTTP and HTTPS in the same deployment
+    - NgrokHeaders middleware applied in local environment ONLY
+
+architecture:
+  critical_rules:
+    - Controllers are thin — receive request, call Service, return response. NEVER game logic.
+    - PhaseManager is the ONLY class allowed to change phase. NEVER write $state->phase directly elsewhere.
+    - Actions are never resolved on submission — store pending (resolved_at=null). Resolution only in ActionResolver::resolve().
+    - Never broadcast directly — fire Events with ShouldBroadcast. Never Broadcast::channel() from controllers or services.
+    - Sensitive data only on private player channels — roles, night results, lover identity, slave info, Kira results on player.{id} only.
+    - WinConditionChecker runs after every elimination — after PlayerEliminated, vote resolution, and every enchant.
+    - No hardcoded role logic in Engine — role behavior lives in role/action classes. Engine calls interfaces only.
+    - All user-facing strings through lang files — NEVER hardcode FR/EN text in PHP or Blade.
+    - Death chains fully resolve before WinConditionChecker — Lover death, Hunter shot, Knight infection all complete first.
+    - Narrator is never a player — no role_id, not in player lists, cannot vote or act.
+    - Every request verified against ownership — session_token resolves Player, verify room_id match, verify role/permission.
+    - Defense window is narrator-controlled — opens and closes manually. Never auto-advances.
+    - Silence clears automatically at night transition — never persists across phases.
+    - Devoted Servant swap is invisible — pre-submitted, applied before announcement, no UI tells ever.
+    - Seat order is set in lobby and locked at game start — never changes mid-game.
+
+authentication:
+  type: session_token
+  storage: players.session_token + httpOnly cookie
+  no_user_accounts: true
+  guard: session-token (registered via auth()->viaRequest() in AppServiceProvider)
+
+database:
+  production: postgresql
+  local: sqlite
+  session_driver_production: database
+  cache_driver_production: database
+  migrations: 7
+  tables:
+    - rooms
+    - players
+    - roles
+    - game_states
+    - night_actions
+    - votes
+    - couple_bonds
+
+roles:
+  total: 27
+  village: 18
+  werewolf: 6
+  neutral: 3
+  village_roles:
+    - villager
+    - seer
+    - witch
+    - hunter
+    - bodyguard
+    - little_girl
+    - cupid
+    - elder
+    - scapegoat
+    - village_idiot
+    - two_sisters
+    - three_brothers
+    - stuttering_judge
+    - knight_with_rusty_sword
+    - devoted_servant
+    - bear_tamer
+    - fox
+    - the_master
+  werewolf_roles:
+    - werewolf
+    - big_bad_wolf
+    - accursed_wolf_father
+    - white_werewolf
+    - wolf_hound
+    - silencer
+  neutral_roles:
+    - angel
+    - pied_piper
+    - kira
+
+night_order_default:
+  night_1_only:
+    - key: cupid
+      order: 0
+    - key: the_master
+      order: 1
+      note: picks 2 initial slaves
+    - key: silencer
+      order: 2
+    - key: wolf_hound
+      order: 3
+      note: faction choice — irreversible
+  every_night:
+    - key: accursed_wolf_father
+      order: 4
+    - key: werewolf
+      order: 5
+    - key: big_bad_wolf
+      order: 6
+    - key: white_werewolf
+      order: 7
+      note: even rounds only
+    - key: bodyguard
+      order: 8
+    - key: little_girl
+      order: 9
+      note: passive
+    - key: seer
+      order: 10
+    - key: witch
+      order: 11
+    - key: pied_piper
+      order: 12
+    - key: fox
+      order: 13
+    - key: bear_tamer
+      order: 14
+      note: passive — narrator reads result
+    - key: the_master
+      order: 15
+      note: recruits +1 slave each night after night 1
+    - key: kira
+      order: 16
+      note: always last — night 2 onwards only
+  auto_skip_rules:
+    - Roles not in current game composition
+    - white_werewolf on odd rounds
+    - cupid after night 1
+    - wolf_hound after night 1
+    - the_master initial pick after night 1
+    - kira on night 1
+    - fox when fox_ability_active is false
+    - bodyguard when all alive players already protected
+  narrator_configurable: true
+  method: drag_and_drop in lobby
+
+events:
+  count: 21
+  all_should_broadcast: true
+  list:
+    - AllPlayersReady
+    - DefenseWindowClosed
+    - DefenseWindowOpened
+    - FinalVoteOpened
+    - FoxResultReady
+    - GameFinished
+    - GameReset
+    - GameStarted
+    - LoverDied
+    - LoversRevealed
+    - NarratorMessageSent
+    - NightActionSubmitted
+    - NightResolved
+    - PhaseChanged
+    - PlayerEliminated
+    - PlayerJoined
+    - PlayerLeft
+    - PlayerSilenced
+    - RoleAssigned
+    - SeerResultReady
+    - SuspiciousAccessAttempt
+    - VillageIdiotRevealed
+    - VoteSubmitted
+
+channels:
+  all_private: true
+  auth_guard: session-token
+  list:
+    - player.{playerId}
+    - narrator.{roomId}
+    - werewolves.{roomId}
+    - room.{roomId}
+
+win_conditions:
+  priority_order:
+    1: angel (round===1 && angel_eliminated_by_vote===true)
+    2: white_werewolf (exactly 1 alive player = white_werewolf)
+    3: pied_piper (all alive in enchanted_player_ids)
+    4: kira (kira_correct_count===3)
+    5: werewolves (werewolf_count >= village_aligned_count)
+    6: village (no alive wolves)
+    7: lovers (exactly 2 alive CoupleBond pair, different factions)
+  runs_after:
+    - every PlayerEliminated event
+    - every vote resolution
+    - every enchant (Pied Piper)
+    - every Kira correct guess
+
+night_modes:
+  narrator_driven:
+    description: Narrator taps to wake each role one by one using wake order queue. Player screens do not change — narrator calls verbally.
+    fallback: narrator manually advances at all times
+  simultaneous:
+    description: All players act at once. Gate opens when all submit. Decoy players submit fake action to check in.
+    fallback: narrator Force Resolve button — no auto-timeout ever
+
+vote_flow:
+  phases:
+    1: initial_vote (voting opens, slaves locked until master votes)
+    2: defense_window (narrator opens/closes manually, verbal only, no app interaction)
+    3: final_vote (all previous votes cleared, everyone votes again)
+    4: resolution (tally locked, tie handling, announcements)
+  defense_window:
+    controlled_by: narrator only
+    player_interaction: none (verbal/physical only)
+    narrator_chooses_who_speaks: true
+  tie_handling:
+    scapegoat: eliminated first, submits decree before death
+    second_vote: among tied players only
+    still_tied: no elimination, never random
+  slave_vote: must wait for master, can only confirm master's choice
+  stuttering_judge: hidden button in vote panel, narrator triggers second vote from dashboard
+
+narrator_lobby:
+  join_method: QR code + room code displayed together
+  seat_order: drag-and-drop players into circular positions
+  role_composition: pool with +/- counters per role, grouped by faction
+  night_order: drag-and-drop, defaults to spec order, reset button available
+  difficulty_settings:
+    - silencer_vote_ban (default off)
+    - bear_tamer_public_or_narrator_only
+    - kira_unknown_death_or_hidden
+  information_disclosure: narrator chooses what role info players see before game starts
+  presets: save/load, always editable, auto-suggest per player count
+  validations:
+    - two_sisters exactly 0 or 2
+    - three_brothers exactly 0 or 3
+    - solo roles max 1 each
+    - total roles must equal player count
+    - min 4 players
+
+narrator_dashboard:
+  layout:
+    - phase_bar (top)
+    - player_grid (left)
+    - live_areas_3_tabs (right — Event Log / Action Feed / Relations)
+    - night_or_vote_controls (bottom)
+  player_card_info:
+    - nickname
+    - role_name + faction_color_border
+    - status (alive/dead/disconnected)
+    - mode_2_submission_badge
+    - special_badges (silenced/slave/enchanted/infected/no_vote/idiot/kira_guesses)
+    - kick_button
+    - send_message_button
+  contextual_buttons:
+    - little_girl_caught (during wolf phase)
+    - trigger_second_vote (after judge signals)
+    - force_resolve (mode 2 night only)
+  relations_panel:
+    - lovers
+    - wolf_pack
+    - enchanted
+    - slaves_and_master
+    - infected
+    - sisters
+    - brothers
+    - seat_order_circular_display
+  smart_prompts:
+    - all night actions submitted
+    - all votes in
+    - stuttering judge request
+    - knight curse pending
+    - devoted servant deciding
+    - bear tamer check
+    - kira elimination
+    - elder abilities disabled
+
+localization:
+  languages: [en, fr]
+  files:
+    - ui.php
+    - roles.php
+    - game.php
+    - narration.php
+    - lobby.php
+    - decoys.php
+  rule: ALL user-facing strings via __('key'). NEVER hardcode text.
+
+decoy_system:
+  purpose: all players see visually identical night panel regardless of role
+  types: [math, riddles, count, unscramble, sequence]
+  storage: lang/decoys.php only (no DB, no events)
+  mode_2: decoy submission counts as gate check-in
+  narrator_visibility: never
+
+ui_design:
+  fonts:
+    heading: Cinzel (serif)
+    body: Inter (sans)
+  colors:
+    bg_primary: "#0D0D0D"
+    bg_surface: "#1A1510"
+    bg_elevated: "#251E16"
+    text_primary: "#E8D9B5"
+    text_secondary: "#9A8A6A"
+    accent_warm: "#C8922A"
+    accent_danger: "#8B2020"
+    accent_village: "#3A6B3A"
+    accent_neutral: "#5A5A8A"
+    accent_lovers: "#8B4A6B"
+    masked_card: "#000000"
+    dead_player: "#3A3530"
+  atmosphere: dark, candlelight, fog, vignette
+  player_screen_philosophy: minimal — phones face down except at key moments
+
+openspec:
+  spec_dir: openspec/specs/
+  changes_dir: openspec/changes/
+  prompts_dir: openspec/prompts/
+  artifact_rules:
+    specs:
+      - Every spec references scratch.md as source of truth
+      - No business logic invented — only what scratch.md defines
+      - Role behavior must match Section 21 exactly
+      - Win conditions must match Section 9 priority order exactly
+    proposal:
+      - Must list all files to be created or modified
+      - Must list all migrations if schema changes
+      - Must not introduce forbidden stack items
+      - Must verify no mixed content (HTTP/HTTPS)
+    tasks:
+      - One task per logical unit (one migration, one model, one service method)
+      - Tasks must not skip validation or auth checks
+      - Every night action task must check: phase, player alive, role match, duplicate
+      - Every vote task must check: slave lock, ban, silencer settings
+    design:
+      - Follow UI Design System in Section 18 exactly
+      - Use CSS variables from app.css @theme — never hardcode hex colors in Blade/components
+      - Hold-to-reveal pattern required for role card and submitted night actions
+      - Decoy panels must be visually identical to real panels
