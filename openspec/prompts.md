@@ -1,4 +1,4 @@
-# lwolftown — OpenSpec Feature Prompts
+# lwerewolf — OpenSpec Feature Prompts
 
 > These prompts are structured for use with `/opsx:new` in OpenSpec.
 > Each prompt is self-contained and references scratch.md as the source of truth.
@@ -43,21 +43,24 @@ PACKAGE.JSON:
 
 ROLE IMAGE DIRECTORY (scaffold now, images added later):
 Create the following structure:
-  public/images/roles/   ← empty directory, ready for {role_key}.png files
+  public/images/roles/              ← directory for all role images
   public/images/roles/placeholder.svg ← generic atmospheric silhouette SVG
 
 placeholder.svg requirements:
-- Dark theme compatible (accent-warm #C8922A stroke on transparent/dark bg)
-- Humanoid silhouette shape
-- Viewbox 400x560 (portrait 5:7 ratio)
-- No fill on figure — stroke only, subtle
-- Used as fallback for ALL 27 roles until real images are added
+- ViewBox: 0 0 400 560 (portrait 5:7 ratio — matches card dimensions)
+- Dark theme: accent-warm #C8922A stroke on transparent background
+- Humanoid silhouette shape, stroke only (no fill)
+- Used as fallback for ALL 27 roles until real PNG images are added
+- SVG scales to any display size automatically
+
+Image dimensions when developer adds them later:
+- Standard (@1x): 400×560px PNG → public/images/roles/{role_key}.png
+- Retina (@2x):   800×1120px PNG → public/images/roles/{role_key}@2x.png
+- @2x is optional — browser falls back to @1x if missing
+- Both optional — falls back to placeholder.svg if neither exists
 
 Blade helper (add to a Blade component or service):
-  $roleImagePath = public_path("images/roles/{$roleKey}.png");
-  $roleImageSrc = file_exists($roleImagePath)
-      ? asset("images/roles/{$roleKey}.png")
-      : asset('images/roles/placeholder.svg');
+  See scratch.md Section 22 for full srcset Blade helper logic.
 
 See scratch.md Section 22 for full image system spec.
 
@@ -947,8 +950,10 @@ ROLECARD subcomponent:
 - Hold-to-reveal (hold 1.5s) → card flips to revealed state
 - Revealed state layout (see scratch.md Section 22):
   → Role image as full card background (object-fit: cover)
-  → If public/images/roles/{role_key}.png exists → use it
-  → If not → use public/images/roles/placeholder.svg (generic silhouette)
+  → If public/images/roles/{role_key}.png exists → use with srcset
+  → If public/images/roles/{role_key}@2x.png exists → add to srcset as 2x
+  → If neither exists → use public/images/roles/placeholder.svg
+  → See scratch.md Section 22 for full Blade helper srcset logic
   → Dark gradient overlay: linear-gradient(to top, rgba(0,0,0,0.92) 40%, rgba(0,0,0,0.3) 100%)
   → Text overlaid at bottom: role name (Cinzel), faction, night_order, abilities
   → Card: position relative, overflow hidden

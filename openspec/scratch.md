@@ -57,7 +57,7 @@ while keeping human conversation at the center of the experience.
 ## 3. Project Structure
 
 ```
-lwolftown/
+lwerewolf/
 ├── AGENTS.md, scratch.md, composer.json, package.json, vite.config.js, phpunit.xml, pint.json, Caddyfile
 ├── railway.app.json, railway.reverb.json, railway.queue.json
 ├── app/
@@ -1214,14 +1214,20 @@ The masked state (before reveal) always shows the atmospheric card face — neve
 
 ### File Convention
 ```
-Location: public/images/roles/{role_key}.png
+Standard (phone):   public/images/roles/{role_key}.png      — 400×560px
+Retina/tablet:      public/images/roles/{role_key}@2x.png   — 800×1120px
+
 Examples:
-  public/images/roles/seer.png
+  public/images/roles/seer.png          (400×560px)
+  public/images/roles/seer@2x.png       (800×1120px)
   public/images/roles/werewolf.png
+  public/images/roles/werewolf@2x.png
   public/images/roles/kira.png
-  public/images/roles/the_master.png
-  public/images/roles/wolf_hound.png
-  ... (one per role_key, 27 total)
+  public/images/roles/kira@2x.png
+  ... (up to 54 files total — 27 roles × 2 resolutions)
+
+@2x is optional — if missing, browser uses @1x automatically.
+Both are optional — if neither exists, placeholder.svg is used.
 
 role_key values (exact, matches roles.key in DB):
   villager, seer, witch, hunter, bodyguard, little_girl, cupid,
@@ -1235,18 +1241,35 @@ role_key values (exact, matches roles.key in DB):
 ### Fallback Silhouette SVG
 ```
 Location: public/images/roles/placeholder.svg
-Content: a generic atmospheric humanoid silhouette
+Content: generic atmospheric humanoid silhouette
+ViewBox: 0 0 400 560 (matches 400×560px card ratio exactly)
+Style: accent-warm #C8922A stroke on transparent background
 Same SVG used for ALL roles that have no image yet
-Styled to match the dark theme (accent-warm stroke on dark bg)
+SVG scales perfectly to any display size (vector)
 ```
 
 ### Blade Helper Logic
 ```php
 // In Blade/Livewire — check if role image exists, fall back to placeholder
-$roleImagePath = public_path("images/roles/{$role->key}.png");
-$roleImageSrc = file_exists($roleImagePath)
-    ? asset("images/roles/{$role->key}.png")
+$roleKey = $role->key;
+$imagePath1x = public_path("images/roles/{$roleKey}.png");
+$imagePath2x = public_path("images/roles/{$roleKey}@2x.png");
+
+$has1x = file_exists($imagePath1x);
+$has2x = file_exists($imagePath2x);
+
+$roleImageSrc    = $has1x
+    ? asset("images/roles/{$roleKey}.png")
     : asset('images/roles/placeholder.svg');
+
+$roleImageSrcset = $has1x
+    ? asset("images/roles/{$roleKey}.png") . ' 1x' .
+      ($has2x ? ', ' . asset("images/roles/{$roleKey}@2x.png") . ' 2x' : '')
+    : null;
+
+// If no image:  <img src="placeholder.svg"> — no srcset
+// If 1x only:  <img src="...png" srcset="...png 1x">
+// If both:     <img src="...png" srcset="...png 1x, ...@2x.png 2x">
 ```
 
 ### Role Card — Revealed State Layout
@@ -1278,13 +1301,44 @@ CSS structure:
 Masked state: no image shown, only atmospheric card face (.card-masked)
 ```
 
+### Image Dimensions & Format
+```
+Standard (phone):  400×560px PNG (portrait, 5:7 ratio)
+Retina/tablet:     800×1120px PNG (@2x — same filename, use srcset)
+
+Target display size on card: ~280×392px CSS (scales with viewport)
+Physical file: 400×560px minimum — crisp on phones
+Tablet (@2x): 800×1120px — crisp on tablets and high-DPI screens
+
+Recommended workflow:
+- Create artwork at 800×1120px
+- Export @1x (400×560px) as {role_key}.png
+- Export @2x (800×1120px) as {role_key}@2x.png
+- Blade srcset handles resolution switching automatically
+
+Blade srcset pattern:
+<img
+  src="{{ asset("images/roles/{$roleKey}.png") }}"
+  srcset="{{ asset("images/roles/{$roleKey}.png") }} 1x,
+          {{ asset("images/roles/{$roleKey}@2x.png") }} 2x"
+  alt="{{ $roleName }}"
+  class="absolute inset-0 w-full h-full object-cover object-top z-0"
+/>
+
+If @2x file missing: browser falls back to @1x automatically.
+If both missing: placeholder.svg shown instead.
+
+Placeholder SVG dimensions: viewBox="0 0 400 560" (same ratio)
+```
+
 ### Adding Images Later
 ```
 To add a role image:
-1. Place file at: public/images/roles/{role_key}.png
-2. Recommended size: 400×560px (portrait, 5:7 ratio)
-3. No code changes needed — Blade helper auto-detects
-4. Deploy: push to GitHub → Railway auto-deploys
+1. Place files at:
+   public/images/roles/{role_key}.png      (400×560px — phone)
+   public/images/roles/{role_key}@2x.png   (800×1120px — tablet/retina)
+2. No code changes needed — Blade helper auto-detects both
+3. Deploy: push to GitHub → Railway auto-deploys
 
 No migrations, no DB changes, no seeder updates needed.
 Images are purely static assets.
@@ -1804,7 +1858,7 @@ export default defineConfig({
 
 ### Project Structure on Railway
 ```
-Railway Project: lwolftown
+Railway Project: lwerewolf
 ├── Service: app      (web — Laravel + FrankenPHP)
 ├── Service: reverb   (WebSocket — php artisan reverb:start)
 ├── Service: queue    (Worker — php artisan queue:work)
@@ -1857,7 +1911,7 @@ APP_NAME=LoupGarou
 APP_ENV=production
 APP_KEY=base64:... (generate with php artisan key:generate --show)
 APP_DEBUG=false
-APP_URL=https://lwolftown.up.railway.app
+APP_URL=https://lwerewolf.up.railway.app
 
 DB_CONNECTION=pgsql
 DATABASE_URL=${DATABASE_URL}
@@ -1868,17 +1922,17 @@ SESSION_DRIVER=database
 CACHE_STORE=database
 LOG_CHANNEL=stderr
 
-REVERB_APP_ID=lwolftown
+REVERB_APP_ID=lwerewolf
 REVERB_APP_KEY=your-key
 REVERB_APP_SECRET=your-secret
 REVERB_SERVER_HOST=0.0.0.0
 REVERB_SERVER_PORT=8080
-REVERB_HOST=lwolftown-reverb.up.railway.app
+REVERB_HOST=lwerewolf-reverb.up.railway.app
 REVERB_PORT=443
 REVERB_SCHEME=https
 
 VITE_REVERB_APP_KEY=your-key
-VITE_REVERB_HOST=lwolftown-reverb.up.railway.app
+VITE_REVERB_HOST=lwerewolf-reverb.up.railway.app
 VITE_REVERB_PORT=443
 VITE_REVERB_SCHEME=https
 ```
@@ -1985,8 +2039,8 @@ VITE_REVERB_SCHEME=http
 ### Local Development
 ```bash
 # 1. Create Laravel project
-composer create-project laravel/laravel lwolftown
-cd lwolftown
+composer create-project laravel/laravel lwerewolf
+cd lwerewolf
 
 # 2. Install dependencies
 composer require livewire/livewire laravel/reverb chillerlan/php-qrcode
