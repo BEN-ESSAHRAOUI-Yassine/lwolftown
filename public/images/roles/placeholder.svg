@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 560" fill="none">
+  <g stroke="#C8922A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Head -->
+    <circle cx="200" cy="100" r="45"/>
+    <!-- Neck -->
+    <line x1="200" y1="145" x2="200" y2="175"/>
+    <!-- Shoulders -->
+    <line x1="200" y1="175" x2="140" y2="210"/>
+    <line x1="200" y1="175" x2="260" y2="210"/>
+    <!-- Torso -->
+    <path d="M140 210 L135 340 L200 370 L265 340 L260 210"/>
+    <!-- Left arm -->
+    <path d="M140 210 L100 280 L110 350"/>
+    <!-- Right arm -->
+    <path d="M260 210 L300 280 L290 350"/>
+    <!-- Left leg -->
+    <path d="M165 350 L155 470 L145 530"/>
+    <!-- Right leg -->
+    <path d="M235 350 L245 470 L255 530"/>
+    <!-- Cape flowing lines -->
+    <path d="M140 210 Q120 300 100 400" stroke-dasharray="4,6"/>
+    <path d="M260 210 Q280 300 300 400" stroke-dasharray="4,6"/>
+  </g>
+</svg>

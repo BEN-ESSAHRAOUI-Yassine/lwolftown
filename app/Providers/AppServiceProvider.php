@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\Player;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -10,25 +11,18 @@ use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
         //
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
         $this->configureDefaults();
+        $this->configureAuth();
+        $this->configureLocale();
     }
 
-    /**
-     * Configure default behaviors for production-ready applications.
-     */
     protected function configureDefaults(): void
     {
         Date::use(CarbonImmutable::class);
@@ -46,5 +40,23 @@ class AppServiceProvider extends ServiceProvider
                 ->uncompromised()
             : null,
         );
+    }
+
+    protected function configureAuth(): void
+    {
+        auth()->viaRequest('session-token', function ($request) {
+            $token = $request->cookie('session_token');
+
+            return $token ? Player::where('session_token', $token)->first() : null;
+        });
+    }
+
+    protected function configureLocale(): void
+    {
+        $locale = session('locale');
+
+        if ($locale && in_array($locale, ['en', 'fr'])) {
+            app()->setLocale($locale);
+        }
     }
 }
