@@ -1,4 +1,4 @@
-# lwerewolf — OpenSpec Feature Prompts
+# lwolftown — OpenSpec Feature Prompts
 
 > These prompts are structured for use with `/opsx:new` in OpenSpec.
 > Each prompt is self-contained and references scratch.md as the source of truth.

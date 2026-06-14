@@ -57,7 +57,7 @@ while keeping human conversation at the center of the experience.
 ## 3. Project Structure
 
 ```
-lwerewolf/
+lwolftown/
 ├── AGENTS.md, scratch.md, composer.json, package.json, vite.config.js, phpunit.xml, pint.json, Caddyfile
 ├── railway.app.json, railway.reverb.json, railway.queue.json
 ├── app/
@@ -1858,7 +1858,7 @@ export default defineConfig({
 
 ### Project Structure on Railway
 ```
-Railway Project: lwerewolf
+Railway Project: lwolftown
 ├── Service: app      (web — Laravel + FrankenPHP)
 ├── Service: reverb   (WebSocket — php artisan reverb:start)
 ├── Service: queue    (Worker — php artisan queue:work)
@@ -1911,7 +1911,7 @@ APP_NAME=LoupGarou
 APP_ENV=production
 APP_KEY=base64:... (generate with php artisan key:generate --show)
 APP_DEBUG=false
-APP_URL=https://lwerewolf.up.railway.app
+APP_URL=https://lwolftown.up.railway.app
 
 DB_CONNECTION=pgsql
 DATABASE_URL=${DATABASE_URL}
@@ -1922,17 +1922,17 @@ SESSION_DRIVER=database
 CACHE_STORE=database
 LOG_CHANNEL=stderr
 
-REVERB_APP_ID=lwerewolf
+REVERB_APP_ID=lwolftown
 REVERB_APP_KEY=your-key
 REVERB_APP_SECRET=your-secret
 REVERB_SERVER_HOST=0.0.0.0
 REVERB_SERVER_PORT=8080
-REVERB_HOST=lwerewolf-reverb.up.railway.app
+REVERB_HOST=lwolftown-reverb.up.railway.app
 REVERB_PORT=443
 REVERB_SCHEME=https
 
 VITE_REVERB_APP_KEY=your-key
-VITE_REVERB_HOST=lwerewolf-reverb.up.railway.app
+VITE_REVERB_HOST=lwolftown-reverb.up.railway.app
 VITE_REVERB_PORT=443
 VITE_REVERB_SCHEME=https
 ```
@@ -2039,8 +2039,8 @@ VITE_REVERB_SCHEME=http
 ### Local Development
 ```bash
 # 1. Create Laravel project
-composer create-project laravel/laravel lwerewolf
-cd lwerewolf
+composer create-project laravel/laravel lwolftown
+cd lwolftown
 
 # 2. Install dependencies
 composer require livewire/livewire laravel/reverb chillerlan/php-qrcode
