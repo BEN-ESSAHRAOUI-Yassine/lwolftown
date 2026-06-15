@@ -1,16 +1,18 @@
-<x-app-layout>
+@extends('layouts.app')
+
+@section('content')
     <div class="flex flex-col items-center justify-center min-h-screen">
         <h1 class="font-cinzel text-4xl text-text-primary mb-8">{{ config('app.name') }}</h1>
 
         <div class="flex gap-4 mb-8">
             <a
                 href="{{ route('locale', 'en') }}"
-                class="{{ app()->locale === 'en' ? 'text-accent-warm' : 'text-text-secondary' }}"
+                class="{{ app()->getLocale() === 'en' ? 'text-accent-warm' : 'text-text-secondary' }}"
             >EN</a>
             <span class="text-text-secondary">|</span>
             <a
                 href="{{ route('locale', 'fr') }}"
-                class="{{ app()->locale === 'fr' ? 'text-accent-warm' : 'text-text-secondary' }}"
+                class="{{ app()->getLocale() === 'fr' ? 'text-accent-warm' : 'text-text-secondary' }}"
             >FR</a>
         </div>
 
@@ -26,4 +28,4 @@
             >{{ __('ui.join_room') }}</a>
         </div>
     </div>
-</x-app-layout>
+@endsection
