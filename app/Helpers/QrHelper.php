@@ -12,10 +12,13 @@ class QrHelper
         $options = new QROptions([
             'outputInterface' => \chillerlan\QRCode\Output\QRMarkupSVG::class,
             'svgUseCssProperties' => false,
-            'scale' => 1,
+            'scale' => 8,
             'outputBase64' => false,
+            'addQuietzone' => true,
         ]);
 
-        return (new QRCode($options))->render($data);
+        $svg = (new QRCode($options))->render($data);
+        $svg = str_replace('<svg ', '<svg width="250" height="250" ', $svg);
+        return $svg;
     }
 }

@@ -38,6 +38,6 @@ class JoinRoom extends Component
 
     public function render()
     {
-        return view('livewire.lobby.join-room');
+        return view('livewire.lobby.join-room')->layout('layouts.app');
     }
 }

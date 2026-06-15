@@ -23,6 +23,6 @@ class CreateRoom extends Component
 
     public function render()
     {
-        return view('livewire.lobby.create-room');
+        return view('livewire.lobby.create-room')->layout('layouts.app');
     }
 }

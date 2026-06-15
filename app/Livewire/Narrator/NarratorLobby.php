@@ -4,6 +4,7 @@ namespace App\Livewire\Narrator;
 
 use App\Events\PlayerLeft;
 use App\Game\Services\LobbyService;
+use App\Game\Services\RoleAssignmentService;
 use App\Helpers\QrHelper;
 use App\Models\Player;
 use App\Models\Role;
@@ -256,6 +257,13 @@ class NarratorLobby extends Component
 
         $this->saveSettings();
 
+        try {
+            app(RoleAssignmentService::class)->assign($this->room);
+        } catch (\RuntimeException $e) {
+            $this->validationErrors[] = $e->getMessage();
+            return;
+        }
+
         return $this->redirect("/game/{$this->room->code}/narrator");
     }
 
@@ -266,6 +274,6 @@ class NarratorLobby extends Component
 
     public function render()
     {
-        return view('livewire.narrator.narrator-lobby');
+        return view('livewire.narrator.narrator-lobby')->layout('layouts.app');
     }
 }

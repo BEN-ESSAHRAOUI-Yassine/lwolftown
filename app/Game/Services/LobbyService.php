@@ -130,7 +130,7 @@ class LobbyService
     protected function generateUniqueCode(): string
     {
         do {
-            $code = strtoupper(Str::random(5));
+            $code = strtoupper(Str::random(6));
         } while (Room::where('code', $code)->exists());
 
         return $code;
